@@ -19,7 +19,7 @@ images_list = \
 ]
 
 
-images_spetial = \
+images_special = \
 [
     images.icon_image(IconNames.YES),
     images.icon_image(IconNames.NO),
@@ -28,17 +28,49 @@ images_spetial = \
 
 bluetooth_connected = False
 
-l_motor, r_motor = 0, 0
+l_motor = 0
+r_motor = 0
 
+x_j, y_j, angle_motor, spetial_m = 0,0,0,0
+is_right = False
+is_front = True
 
 def init_bluetooth_connected():
-    images_spetial[0].show_image(0)
+    images_special[0].show_image(0)
+
+def compute_motors_speed():
+    e = 0.001
+    total_value = (x_j ** 2 + y_j ** 2) ** (1 / 2)
+    if total_value == 0:
+        return 0, 0
+    normalise_y = y_j / total_value
+    n_y = 1-Math.acos(normalise_y)/(Math.PI/2)
+    l_m = 1 - n_y * 2
+    r_m = min(total_value, 1)
+    r_m = Math.sqrt(r_m+1)*Math.sqrt(2)-1
+    l_m = Math.sqrt(l_m+1)*Math.sqrt(2)-1
+    l_m = min(1,l_m+e)
+    r_m = min(1, r_m+e)
+    if not is_front:
+        tmp = l_m
+        l_m = -l_m
+        r_m = -tmp
+    if is_right:
+        tmp = l_m
+        l_m = r_m
+        r_m = tmp
+    return l_m, r_m
 
 def cycle_bluetooth_check():
-    global l_motor, r_motor
-    read = bluetooth.uart_read_until(serial.delimiters(Delimiters.NEW_LINE))
-    l_motor = parse_float(read.split(";")[0])
-    r_motor = parse_float(read.split(";")[1])
+    global l_motor, r_motor, x_j, y_j, angle_motor, spetial_m, is_right, is_front
+    read = bluetooth.uart_read_until(serial.delimiters(Delimiters.NEW_LINE)).split(";")
+    y_j, x_j, angle_motor, spetial_m = (parse_float(i) for i in read)
+    is_right = y_j >= 0
+    is_front = x_j >= 0
+    x_j = abs(x_j)
+    y_j = abs(y_j)
+
+    l_motor, r_motor = compute_motors_speed()
 
 def update_power():
     inversed_pin_l, inversed_pin_r = l_motor<0, r_motor<0
@@ -64,7 +96,7 @@ def on_forever():
             update_power()
     basic.pause(200)
     
-images_spetial[1].show_image(0)
+images_special[1].show_image(0)
 
 bluetooth.on_bluetooth_connected(on_bluetooth_connected)
 bluetooth.on_bluetooth_disconnected(on_bluetooth_disconnected)
